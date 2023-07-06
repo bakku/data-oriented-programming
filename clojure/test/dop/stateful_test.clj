@@ -1,5 +1,6 @@
 (ns dop.stateful-test
   (:require [clojure.test :refer :all]
+            [crypto.password.bcrypt :as bcrypt]
             [malli.generator :as mg]
             [dop.schema :as schema]
             [dop.stateful :refer :all]))
@@ -27,3 +28,27 @@
     (create-restaurant {:name "The Blue Dolphin"})
     (is (= 3 (count (:restaurants @app-state))))
     (is (= "The Blue Dolphin" (get-in @app-state [:restaurants 2 :name])))))
+
+(deftest authenticate-test
+  (reset! app-state {:users [(assoc (mg/generate schema/user) :password (bcrypt/encrypt "test")
+                                                              :username "testuser")]})
+  (testing "returns nil if user does not exist"
+    (is (nil? (authenticate "test" "test"))))
+  (testing "returns nil if password does not match"
+    (is (nil? (authenticate "testuser" "bla"))))
+  (testing "returns user if username and password matches"
+    (is (= (first (@app-state :users))
+           (authenticate "testuser" "test")))))
+
+(deftest generate-and-store-token-test
+  (reset! app-state {:users [(mg/generate schema/user)]})
+  (with-redefs [dop.stateful/generate-token (fn [] "token")]
+    (testing "updates token in app-state"
+      (generate-and-store-token (first (@app-state :users)))
+      (is (= "token"
+             (-> (@app-state :users)
+                 first
+                 (get :access-token)))))
+    (testing "returns the token"
+      (is (= "token"
+             (generate-and-store-token (first (@app-state :users))))))))

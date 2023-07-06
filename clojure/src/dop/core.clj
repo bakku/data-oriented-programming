@@ -10,7 +10,8 @@
             [ring.util.response :refer [response created]]
             [malli.dev :as dev]
             [dop.stateful :as stateful]
-            [dop.schema :as schema])
+            [dop.schema :as schema]
+            [dop.middleware :as middleware])
   (:gen-class))
 
 
@@ -21,7 +22,9 @@
   {:no-doc true
    :openapi {:openapi "3.0.0"
              :info {:title "Data Oriented Programming with Clojure"
-                    :version "0.0.1"}}
+                    :version "0.0.1"}
+             :components {:securitySchemes {"basic" {:type :http
+                                                     :scheme :basic}}}}
    :handler (openapi/create-openapi-handler)})
 
 (defn status-handler
@@ -51,6 +54,16 @@
    :responses {201 {}}
    :handler stateful-post-restaurants-handler})
 
+(defn stateful-get-auth-token-handler
+  [{:keys [user]}]
+  (response {:access-token
+             (stateful/generate-and-store-token user)}))
+
+(def stateful-get-auth-token-route
+  {:parameters {}
+   :responses  {200 {:body [:map [:access-token string?]]}}
+   :handler    stateful-get-auth-token-handler})
+
 (def app
   (ring/ring-handler
     (ring/router
@@ -58,7 +71,10 @@
        ["/status" {:get status-route}]
        ["/stateful"
         ["/restaurants" {:get  stateful-get-restaurants-route
-                         :post stateful-post-restaurants-route}]]]
+                         :post stateful-post-restaurants-route}]
+        ["/auth" {:openapi {:security [{"basic" []}]}}
+         ["/token" {:get stateful-get-auth-token-route
+                    :middleware [[middleware/basic-auth-middleware stateful/authenticate]]}]]]]
       {:data {:coercion coercion-malli/coercion
               :muuntaja muuntaja/instance
               :middleware [reitit-muuntaja/format-negotiate-middleware
