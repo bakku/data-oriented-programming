@@ -29,17 +29,6 @@
     (is (= 3 (count (:restaurants @app-state))))
     (is (= "The Blue Dolphin" (get-in @app-state [:restaurants 2 :name])))))
 
-(deftest authenticate-test
-  (reset! app-state {:users [(assoc (mg/generate schema/user) :password (bcrypt/encrypt "test")
-                                                              :username "testuser")]})
-  (testing "returns nil if user does not exist"
-    (is (nil? (authenticate "test" "test"))))
-  (testing "returns nil if password does not match"
-    (is (nil? (authenticate "testuser" "bla"))))
-  (testing "returns user if username and password matches"
-    (is (= (first (@app-state :users))
-           (authenticate "testuser" "test")))))
-
 (deftest generate-and-store-token-test
   (reset! app-state {:users [(mg/generate schema/user)]})
   (with-redefs [dop.stateful/generate-token (fn [] "token")]
@@ -52,3 +41,22 @@
     (testing "returns the token"
       (is (= "token"
              (generate-and-store-token (first (@app-state :users))))))))
+
+(deftest authenticate-test
+  (reset! app-state {:users [(assoc (mg/generate schema/user) :password (bcrypt/encrypt "test")
+                                                              :username "testuser")]})
+  (testing "returns nil if user does not exist"
+    (is (nil? (authenticate "test" "test"))))
+  (testing "returns nil if password does not match"
+    (is (nil? (authenticate "testuser" "bla"))))
+  (testing "returns user if username and password matches"
+    (is (= (first (@app-state :users))
+           (authenticate "testuser" "test")))))
+
+(deftest authenticate-via-token-test
+  (reset! app-state {:users [(assoc (mg/generate schema/user) :access-token "12345")]})
+  (testing "returns nil if no user cannot be found for token"
+    (is (nil? (authenticate-via-token "54321"))))
+  (testing "returns user if user can be found for token"
+    (is (= (first (@app-state :users))
+           (authenticate-via-token "12345")))))

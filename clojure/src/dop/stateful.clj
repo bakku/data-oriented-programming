@@ -6,9 +6,9 @@
 (def app-state
   (atom {:restaurants [{:name "The Blue Dolphin"}
                        {:name "The Red Lion"}]
-         :users [{:username "bakku"
-                  :password (bcrypt/encrypt "test1234")
-                  :admin true}]}))
+         :users       [{:username "bakku"
+                        :password (bcrypt/encrypt "test1234")
+                        :admin    true}]}))
 
 (defn get-restaurants
   {:malli/schema [:=> :cat [:vector schema/restaurant]]}
@@ -53,3 +53,11 @@
     (if (bcrypt/check password (user :password))
       user
       nil)))
+
+(defn authenticate-via-token
+  [token]
+  (if-let [user (->> (@app-state :users)
+                     (filter #(= (% :access-token) token))
+                     first)]
+    user
+    nil))

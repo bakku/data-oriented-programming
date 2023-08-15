@@ -14,17 +14,24 @@
             [dop.middleware :as middleware])
   (:gen-class))
 
+;; Role predicates to guard routes are defined here:
+(defn admin?
+  {:malli/schema [:=> [:cat schema/user] boolean?]}
+  [user]
+  (user :admin))
 
 ;; reitit.swagger-ui does not use Swagger UI 5 yet,
 ;; so we have to act as if an openapi 3.0.0 documentation
 ;; is generated.
 (def openapi-route
-  {:no-doc true
-   :openapi {:openapi "3.0.0"
-             :info {:title "Data Oriented Programming with Clojure"
-                    :version "0.0.1"}
-             :components {:securitySchemes {"basic" {:type :http
-                                                     :scheme :basic}}}}
+  {:no-doc  true
+   :openapi {:openapi    "3.0.0"
+             :info       {:title   "Data Oriented Programming with Clojure"
+                          :version "0.0.1"}
+             :components {:securitySchemes {"basic"  {:type   :http
+                                                      :scheme :basic}
+                                            "bearer" {:type   :http
+                                                      :scheme :bearer}}}}
    :handler (openapi/create-openapi-handler)})
 
 (defn status-handler
@@ -51,8 +58,10 @@
 
 (def stateful-post-restaurants-route
   {:parameters {:body schema/restaurant}
-   :responses {201 {}}
-   :handler stateful-post-restaurants-handler})
+   :responses  {201 {}}
+   :handler    stateful-post-restaurants-handler
+   :middleware [[middleware/bearer-middleware stateful/authenticate-via-token admin?]]
+   :openapi    {:security [{"bearer" []}]}})
 
 (defn stateful-get-auth-token-handler
   [{:keys [user]}]
@@ -73,10 +82,10 @@
         ["/restaurants" {:get  stateful-get-restaurants-route
                          :post stateful-post-restaurants-route}]
         ["/auth" {:openapi {:security [{"basic" []}]}}
-         ["/token" {:get stateful-get-auth-token-route
+         ["/token" {:get        stateful-get-auth-token-route
                     :middleware [[middleware/basic-auth-middleware stateful/authenticate]]}]]]]
-      {:data {:coercion coercion-malli/coercion
-              :muuntaja muuntaja/instance
+      {:data {:coercion   coercion-malli/coercion
+              :muuntaja   muuntaja/instance
               :middleware [reitit-muuntaja/format-negotiate-middleware
                            reitit-muuntaja/format-response-middleware
                            reitit-muuntaja/format-request-middleware
@@ -86,7 +95,7 @@
     (ring/routes
       (swagger-ui/create-swagger-ui-handler
         {:path "/swagger-ui"
-         :url "/openapi.json"})
+         :url  "/openapi.json"})
       (ring/create-default-handler))))
 
 (defn -main

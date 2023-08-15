@@ -16,7 +16,7 @@
         (String. StandardCharsets/UTF_8))
     (catch Exception _ nil)))
 
-(defn- decode-auth-value
+(defn- decode-basic-auth-value
   [auth-value]
   (-> auth-value
       ;; Remove "Basic " part
@@ -25,7 +25,7 @@
 
 (defn- try-authenticate
   [authenticate auth-value]
-  (if-let [decoded-auth-value (decode-auth-value auth-value)]
+  (if-let [decoded-auth-value (decode-basic-auth-value auth-value)]
     (let [[username password] (string/split decoded-auth-value #":")]
       (if (and (not (nil? username))
                (not (nil? password)))
@@ -39,5 +39,29 @@
     (if-let [auth-value (get-auth-header-value request)]
       (if-let [user (try-authenticate authenticate auth-value)]
         (handler (assoc request :user user))
+        (status 401))
+      (status 401))))
+
+(defn- decode-bearer-auth-value
+  [auth-value]
+  (if (<= 7 (count auth-value))
+    ;; Remove "Bearer " part
+    (subs auth-value 7)
+    nil))
+
+(defn- try-authenticate-with-token
+  [authenticate auth-value]
+  (if-let [token (decode-bearer-auth-value auth-value)]
+    (authenticate token)
+    false))
+
+(defn bearer-middleware
+  [handler authenticate & predicates]
+  (fn [request]
+    (if-let [auth-value (get-auth-header-value request)]
+      (if-let [user (try-authenticate-with-token authenticate auth-value)]
+        (if (every? #(% user) predicates)
+          (handler (assoc request :user user))
+          (status 403))
         (status 401))
       (status 401))))
