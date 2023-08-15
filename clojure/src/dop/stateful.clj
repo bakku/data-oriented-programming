@@ -25,6 +25,17 @@
                       #(conj % restaurant))))
   nil)
 
+(defn create-user
+  {:malli/schema [:=> [:cat schema/user] :nil]}
+  [user]
+  (let [user-with-password (assoc user :password (bcrypt/encrypt (user :password)))]
+    (swap! app-state
+           (fn [state]
+             (update-in state
+                        [:users]
+                        #(conj % user-with-password)))))
+  nil)
+
 (defn- generate-token
   []
   (->> #(rand-nth "abcdefghijklmnopqrstuvwxyz0123456789_-")

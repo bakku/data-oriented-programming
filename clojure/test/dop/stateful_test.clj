@@ -29,6 +29,18 @@
     (is (= 3 (count (:restaurants @app-state))))
     (is (= "The Blue Dolphin" (get-in @app-state [:restaurants 2 :name])))))
 
+(deftest create-user-test
+  (reset! app-state {:users
+                     (->> (repeatedly #(mg/generate schema/user))
+                          (take 2)
+                          vec)})
+  (testing "adds a new user to the app state"
+    (create-user {:username "testuser" :password "test1234" :admin false})
+    (is (= 3 (count (@app-state :users))))
+    (is (= "testuser" (get-in @app-state [:users 2 :username])))
+    (is (not (= "test1234" (get-in @app-state [:users 2 :password]))))
+    (is (not (get-in @app-state [:users 2 :admin])))))
+
 (deftest generate-and-store-token-test
   (reset! app-state {:users [(mg/generate schema/user)]})
   (with-redefs [dop.stateful/generate-token (fn [] "token")]

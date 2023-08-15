@@ -63,6 +63,21 @@
    :middleware [[middleware/bearer-middleware stateful/authenticate-via-token admin?]]
    :openapi    {:security [{"bearer" []}]}})
 
+(defn stateful-post-users-handler
+  [{{:keys [username password admin]} :body-params}]
+  (stateful/create-user {:username username :password password :admin admin})
+  (created nil))
+
+(def stateful-post-users-route
+  {:parameters {:body [:map
+                       [:username string?]
+                       [:password string?]
+                       [:admin boolean?]]}
+   :responses  {201 {}}
+   :handler    stateful-post-users-handler
+   :middleware [[middleware/bearer-middleware stateful/authenticate-via-token admin?]]
+   :openapi    {:security [{"bearer" []}]}})
+
 (defn stateful-get-auth-token-handler
   [{:keys [user]}]
   (response {:access-token
@@ -81,6 +96,7 @@
        ["/stateful"
         ["/restaurants" {:get  stateful-get-restaurants-route
                          :post stateful-post-restaurants-route}]
+        ["/users" {:post stateful-post-users-route}]
         ["/auth" {:openapi {:security [{"basic" []}]}}
          ["/token" {:get        stateful-get-auth-token-route
                     :middleware [[middleware/basic-auth-middleware stateful/authenticate]]}]]]]
